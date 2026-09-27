@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EOD Dropscale</title>
+<meta name="description" content="Registro diário (EOD) da equipe de CS da Dropscale.">
+<meta name="theme-color" content="#0a0d14" id="metaTema">
+<script>
+/* tema antes de pintar (sem piscar): a escolha salva ou o tema do sistema */
+(function(){ var t = null; try { t = localStorage.getItem("eod.tema"); } catch(e){}
+  if (t !== "claro" && t !== "escuro") t = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "claro" : "escuro";
+  document.documentElement.setAttribute("data-tema", t); })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+/* =============================================================================
+   TOKENS — os mesmos do CS Dashboard, para a integração não destoar.
+   Azul = ação e seleção. Verde / âmbar / vermelho só indicam estado.
+   ========================================================================== */
+:root{
+  --bg:#0a0d14; --card:#121722; --card2:#1a2130; --card3:#232c3f;
+  --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.12);
+  --text:#eef2f9; --text2:#9ea8bb; --muted:#65708a;
+  --brand:#2f6fed; --brand-2:#5b9bff; --brand-soft:rgba(59,130,246,.16); --brand-ink:#a9c8ff;
+  --good:#35c486; --warn:#f2b03d; --crit:#ef5b6e;
+  --good-soft:rgba(53,196,134,.14); --warn-soft:rgba(242,176,61,.14); --crit-soft:rgba(239,91,110,.14);
+  --good-ink:#7fe0b4; --warn-ink:#f6cd84; --crit-ink:#f7a3ad;
+  --hover:rgba(255,255,255,.04); --field:rgba(255,255,255,.05); --overlay:rgba(3,5,9,.74);
+  --shadow-pop:0 18px 44px rgba(0,0,0,.5);
+  --scheme:dark;
+  --r:10px; --r-sm:7px;
+  --font-d:'Inter Tight','Inter','Segoe UI',system-ui,sans-serif;
+  --font:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+}
+:root[data-tema=claro]{
+  --scheme:light;
+  --bg:#f3f5f9; --card:#ffffff; --card2:#f2f5f9; --card3:#e5eaf2;
+  --line:rgba(15,23,42,.08); --line2:rgba(15,23,42,.14);
+  --text:#0f172a; --text2:#475467; --muted:#7a8599;
+  --brand:#2f6fed; --brand-2:#2563eb; --brand-soft:rgba(47,111,237,.10); --brand-ink:#1d4ed8;
+  --good:#1fa971; --warn:#e39a2d; --crit:#e5484d;
+  --good-soft:rgba(31,169,113,.12); --warn-soft:rgba(227,154,45,.15); --crit-soft:rgba(229,72,77,.11);
+  --good-ink:#0d7a4e; --warn-ink:#8a5300; --crit-ink:#b42335;
+  --hover:rgba(15,23,42,.04); --field:rgba(15,23,42,.045); --overlay:rgba(15,23,42,.35);
+  --shadow-pop:0 18px 44px rgba(15,23,42,.16);
+}
+html{-webkit-text-size-adjust:100%;color-scheme:var(--scheme)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;
+  font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+h1,h2,h3{font-family:var(--font-d);font-weight:600;letter-spacing:-.2px}
+.hide{display:none!important}
+.muted{color:var(--muted)} .t2{color:var(--text2)}
+
+/* ---------- topo ---------- */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--font-d);font-weight:700;font-size:15px;white-space:nowrap}
+.brand .mk{width:28px;height:28px;border-radius:8px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:12px}
+.nav{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{padding:7px 12px;border-radius:var(--r-sm);color:var(--text2);text-decoration:none;white-space:nowrap;font-weight:500}
+.nav a:hover{background:var(--hover);color:var(--text)}
+.nav a.on{background:var(--card2);color:var(--text)}
+.me{display:flex;align-items:center;gap:6px}
+.me .nome{color:var(--text2);white-space:nowrap}
+@media(max-width:720px){.top-in{flex-wrap:wrap}.nav{order:3;flex-basis:100%}.me .nome{display:none}}
+
+/* ---------- layout ---------- */
+main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.head h1{font-size:22px}
+.head p{color:var(--text2);margin-top:2px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card+.card{margin-top:16px}
+.card h2{font-size:15px;margin-bottom:2px}
+.card .sub{color:var(--text2);font-size:13px;margin-bottom:12px}
+.stack>*+*{margin-top:16px}
+
+/* ---------- controles ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line2);background:var(--card2);
+  border-radius:var(--r-sm);padding:7px 12px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--card3)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.ghost{background:none;border-color:transparent;color:var(--text2)}
+.btn.ghost:hover{background:var(--hover);color:var(--text)}
+.btn.sm{padding:4px 9px;font-size:12.5px}
+.btn.ok{background:var(--good-soft);border-color:transparent;color:var(--good-ink)}
+.btn.danger{color:var(--crit-ink)}
+.inp{width:100%;background:var(--field);border:1px solid var(--line2);border-radius:var(--r-sm);padding:8px 10px;outline:none}
+.inp:focus{border-color:var(--brand-2);box-shadow:0 0 0 3px var(--brand-soft)}
+textarea.inp{resize:vertical;min-height:38px}
+select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
+select.inp option{background:var(--card);color:var(--text)}
+.field{margin-bottom:12px}
+.field label,.lbl{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.chk{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.chk input{width:16px;height:16px;accent-color:var(--brand)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px}
+.seg button{border:1px solid var(--line2);background:none;border-radius:999px;padding:4px 11px;cursor:pointer;font-size:12.5px;color:var(--text2)}
+.seg button:hover{background:var(--hover);color:var(--text)}
+.seg button.on{background:var(--brand-soft);border-color:var(--brand-2);color:var(--brand-ink);font-weight:500}
+.seg button.on.fim{background:var(--good-soft);border-color:var(--good);color:var(--good-ink)}
+
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--card2);color:var(--text2);white-space:nowrap}
+.tag.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.tag.good{background:var(--good-soft);color:var(--good-ink)}
+.tag.brand{background:var(--brand-soft);color:var(--brand-ink)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+
+.datenav{display:flex;align-items:center;gap:4px}
+.datenav .d{min-width:140px;text-align:center;font-weight:500}
+.datenav input[type=date]{width:auto}
+
+/* ---------- sugestões ---------- */
+.sug{display:flex;align-items:flex-start;gap:10px;padding:9px 8px;border-radius:var(--r-sm);cursor:pointer}
+.sug:hover{background:var(--hover)}
+.sug input{margin-top:3px;width:17px;height:17px;accent-color:var(--brand);flex:none;cursor:pointer}
+.sug .nm{font-weight:500}
+.sug .det{font-size:12.5px;color:var(--text2);margin-top:1px}
+.sug.busy{opacity:.5;pointer-events:none}
+.empty{color:var(--muted);padding:14px 4px;font-size:13.5px}
+
+/* ---------- busca ---------- */
+.busca{position:relative}
+.drop{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--line2);border-radius:var(--r);
+  box-shadow:var(--shadow-pop);z-index:15;max-height:320px;overflow:auto;padding:4px}
+.opt{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer}
+.opt:hover,.opt.act{background:var(--hover)}
+.opt .nm{flex:1}
+.opt.novo{color:var(--brand-ink);font-weight:500}
+.novoform{margin-top:10px;padding:12px;border:1px dashed var(--line2);border-radius:var(--r)}
+.tipos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tipo{border:1px solid var(--line2);border-radius:var(--r-sm);padding:9px 10px;cursor:pointer}
+.tipo b{display:block;font-weight:600}
+.tipo span{font-size:12px;color:var(--text2)}
+.tipo.on{border-color:var(--brand-2);background:var(--brand-soft)}
+@media(max-width:520px){.tipos{grid-template-columns:1fr}}
+
+/* ---------- cartões de tarefa ---------- */
+.tot{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.reg{border:1px solid var(--line2);border-radius:var(--r);padding:12px;background:var(--card)}
+.reg+.reg{margin-top:10px}
+.reg.trav{border-left:4px solid var(--warn);background:linear-gradient(90deg,var(--warn-soft),transparent 60%)}
+.reg .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.reg .hd .nm{font-weight:600;flex:1;min-width:140px}
+.reg .hd select{width:auto;padding:4px 26px 4px 8px;font-size:12.5px}
+.reg .bd{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px}
+.reg .bd .full{grid-column:1/-1}
+.reg .ft{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted)}
+.tempo{display:flex;gap:6px;align-items:center}
+.tempo input{width:64px}
+.salvo{font-size:12px}
+.salvo.err{color:var(--crit-ink)}
+
+/* ---------- conversa ---------- */
+.msgs{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.msg{max-width:88%;padding:8px 11px;border-radius:12px;background:var(--card2)}
+.msg.eu{align-self:flex-end;background:var(--brand-soft)}
+.msg .au{font-size:11.5px;color:var(--text2);margin-bottom:2px}
+.msg .tx{white-space:pre-wrap;word-wrap:break-word}
+.reply{display:flex;gap:8px;align-items:flex-end}
+.reply textarea{min-height:38px;height:38px}
+
+/* ---------- visão da equipe ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.tile .k{font-size:12px;color:var(--text2)}
+.tile .v{font-family:var(--font-d);font-size:24px;font-weight:600;margin-top:2px}
+.tile .v small{font-size:14px;color:var(--muted);font-weight:500}
+.pessoas{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+@media(max-width:420px){.pessoas{grid-template-columns:1fr}}
+.pc{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column}
+.pc.alerta{border-color:var(--warn)}
+.pc .ph{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.pc .ph .nm{font-weight:600;font-size:15px}
+.pc .ph .lj{font-size:12px;color:var(--text2)}
+.it{display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
+.it:first-child{border-top:none}
+.it .dot{margin-top:6px}
+.it .c{flex:1;min-width:0}
+.it .l1{display:flex;justify-content:space-between;gap:8px}
+.it .l1 .nm{font-weight:500}
+.it .l1 .v{color:var(--text2);white-space:nowrap;font-size:13px}
+.it .l2{font-size:12.5px;color:var(--text2);margin-top:1px}
+.it .trv{margin-top:4px;font-size:12.5px;color:var(--warn-ink);background:var(--warn-soft);padding:4px 8px;border-radius:6px}
+.pc .conv{margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+.resumo table{width:100%;border-collapse:collapse;font-size:13px}
+.resumo th,.resumo td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+.resumo th{color:var(--text2);font-weight:500;font-size:12px}
+.resumo td.n{text-align:right}
+
+/* ---------- histórico / pessoas ---------- */
+.filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.dia{margin-top:18px}
+.dia>h3{font-size:14px;color:var(--text2);margin-bottom:8px}
+/* No celular o "Meu dia" vira uma coluna só, na ordem do uso: ontem, adicionar, registrado, conversa */
+@media(max-width:900px){
+  .md .stack{display:contents}
+  .md #cSug{order:1} .md #cAdd{order:2} .md #cReg{order:3} .md #cConv{order:4}
+  .md .card+.card{margin-top:0}
+}
+.hp{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px}
+.hp+.hp{margin-top:8px}
+.hp .hh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.hp .hh .nm{font-weight:600;flex:1}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl th{color:var(--text2);font-weight:500;font-size:12px}
+.tblwrap{overflow-x:auto}
+.ljs{display:flex;flex-wrap:wrap;gap:6px}
+.ljs label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);border-radius:999px;padding:4px 10px;cursor:pointer;font-size:12.5px}
+.ljs input{accent-color:var(--brand)}
+
+/* ---------- login / modal / aviso ---------- */
+.login{min-height:100vh;display:grid;place-items:center;padding:24px}
+.login-box{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px}
+.login-box h2{text-align:center;font-size:19px}
+.login-box .mk{width:44px;height:44px;border-radius:12px;background:var(--brand);color:#fff;display:grid;place-items:center;margin:0 auto 14px;font-family:var(--font-d);font-weight:700}
+.login-box p.sub{text-align:center;color:var(--text2);font-size:13px;margin:4px 0 20px}
+.link{background:none;border:none;color:var(--brand-2);cursor:pointer;font-size:13px;width:100%;margin-top:10px}
+.msgbox{font-size:13px;padding:8px 10px;border-radius:var(--r-sm);margin-bottom:12px}
+.msgbox.bad{background:var(--crit-soft);color:var(--crit-ink)}
+.msgbox.ok{background:var(--good-soft);color:var(--good-ink)}
+.modal{position:fixed;inset:0;background:var(--overlay);display:grid;place-items:center;padding:16px;z-index:50}
+.modal .box{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:20px;box-shadow:var(--shadow-pop)}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--card3);color:var(--text);padding:9px 14px;border-radius:var(--r-sm);
+  box-shadow:var(--shadow-pop);z-index:60;font-size:13px;max-width:calc(100% - 32px)}
+.toast.bad{background:var(--crit);color:#fff}
+.load{color:var(--muted);padding:30px 0;text-align:center}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="toast" class="toast hide"></div>
+
+<script>
+/* =============================================================================
+   CONFIGURAÇÃO
+   API_URL: a URL /exec da implantação do Apps Script (veja o README).
+   LOJAS / STORE_COLOR: mesmas lojas e cores do CS Dashboard, mais as lojas de
+   gestão e "Geral" para tarefas que não são de uma loja.
+   ========================================================================== */
+var API_URL = "https://script.google.com/macros/s/AKfycbw3xiv3c2pZ0kpUi-Tkt38-Feyuwgr3U97qY5xiEbQvTq_EpySwp6TwFMgjPDQtdMt7NQ/exec";
+
+var LOJAS = ["Lumvelle","Elevare","Old Harvest","Vigewell","Vellum","Stratum","Nouveian","Old World Healing","Quasi","ReliveX","Geral"];
+var STORE_COLOR = {Lumvelle:"#3987e5", Elevare:"#199e70", "Old Harvest":"#c98500", Vigewell:"#d55181", Vellum:"#008300",
+                   Stratum:"#9085e9", Nouveian:"#7f9a1a", "Old World Healing":"#1a9fc4", Quasi:"#b36bd6", ReliveX:"#d95926", Geral:"#65708a"};
+var STATUS = ["Iniciado","Na metade","Finalizando","Ajustes","Concluído"];
+var STATUS_FINAL = "Concluído";
+
+/* =============================================================================
+   ESTADO
+   ========================================================================== */
+var TOKEN = null, USER = null, CAT = [];
+var DIA = null, DIA_DATA = hojeISO();
+var PAINEL = null, PAINEL_DATA = hojeISO(), PAINEL_FILTRO = "todos";
+var HIST = null, HIST_F = { de: addDias(hojeISO(), -6), ate: hojeISO(), email: "", loja: "", q: "", trav: false };
+var EQUIPE = null, EDIT_USER = null;
+
+try { TOKEN = localStorage.getItem("eod.token"); USER = JSON.parse(localStorage.getItem("eod.user") || "null"); } catch(e){}
+
+/* =============================================================================
+   UTILITÁRIOS
+   ========================================================================== */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function pad(n){ return (n < 10 ? "0" : "") + n; }
+function isoDe(d){ return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function hojeISO(){ return isoDe(new Date()); }
+function dataDe(iso){ var p = iso.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function addDias(iso, n){ var d = dataDe(iso); d.setDate(d.getDate() + n); return isoDe(d); }
+function fmtData(iso, longo){
+  if (!iso) return "";
+  var d = dataDe(iso);
+  var s = d.toLocaleDateString("pt-BR", longo ? { weekday:"long", day:"2-digit", month:"long" } : { weekday:"short", day:"2-digit", month:"2-digit" });
+  return s.replace(".", "");
+}
+function rotuloDia(iso){
+  var h = hojeISO();
+  if (iso === h) return "Hoje";
+  if (iso === addDias(h, -1)) return "Ontem";
+  return fmtData(iso);
+}
+function fmtHora(dt){ return dt ? String(dt).slice(11, 16) : ""; }
+function fmtMin(m){ if (m == null || m === "") return ""; m = +m; var h = Math.floor(m / 60), r = m % 60; return h ? (h + "h" + (r ? " " + pad(r) + "min" : "")) : (r + "min"); }
+function chave(s){ return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim(); }
+function cor(loja){ return STORE_COLOR[loja] || "#65708a"; }
+function dotLoja(loja){ return '<span class="dot" style="background:' + cor(loja) + '"></span>'; }
+function primeiroNome(n){ return String(n || "").split(" ")[0]; }
+function num(n){ return (+n || 0).toLocaleString("pt-BR"); }
+
+var toastT;
+function toast(msg, bad){
+  var t = $("toast"); t.textContent = msg; t.className = "toast" + (bad ? " bad" : "");
+  clearTimeout(toastT); toastT = setTimeout(function(){ t.className = "toast hide"; }, bad ? 5000 : 2500);
+}
+
+function setTema(t){
+  document.documentElement.setAttribute("data-tema", t);
+  try { localStorage.setItem("eod.tema", t); } catch(e){}
+  $("metaTema").setAttribute("content", t === "claro" ? "#f3f5f9" : "#0a0d14");
+}
+
+/* =============================================================================
+   API — tudo vai por POST com corpo text/plain (sem preflight de CORS no Apps Script)
+   ========================================================================== */
+function api(action, dados){
+  if (!API_URL) return Promise.reject(new Error("Falta configurar a API_URL no index.html."));
+  var corpo = Object.assign({ action: action, token: TOKEN }, dados || {});
+  return fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(corpo), redirect: "follow" })
+    .then(function(r){ return r.text(); })
+    .then(function(t){
+      var j; try { j = JSON.parse(t); } catch(e){ throw new Error("A API não respondeu direito. Confira a implantação do Apps Script."); }
+      if (!j.ok){
+        if (j.error === "sessao"){ sair(true); throw new Error(j.msg || "Sessão expirada."); }
+        throw new Error(j.error || "Erro desconhecido.");
+      }
+      return j;
+    });
+}
+
+/* =============================================================================
+   ESTRUTURA / NAVEGAÇÃO
+   ========================================================================== */
+function rota(){ return (location.hash || "#meu-dia").slice(1); }
+
+function shell(){
+  var admin = USER && USER.papel === "admin";
+  var abas = [["meu-dia","Meu dia"]];
+  if (admin) abas.push(["equipe","Equipe"]);
+  abas.push(["historico","Histórico"]);
+  if (admin) abas.push(["pessoas","Pessoas e tarefas"]);
+  var r = rota();
+  $("app").innerHTML =
+    '<header class="top"><div class="top-in">' +
+      '<div class="brand"><div class="mk">DS</div>EOD</div>' +
+      '<nav class="nav">' + abas.map(function(a){ return '<a href="#' + a[0] + '" class="' + (r === a[0] ? "on" : "") + '">' + a[1] + '</a>'; }).join("") + '</nav>' +
+      '<div class="me"><span class="nome">' + esc(USER.nome) + '</span>' +
+        '<button class="btn ghost sm" id="btTema" title="Trocar tema">◐</button>' +
+        '<button class="btn ghost sm" id="btSenha">Senha</button>' +
+        '<button class="btn ghost sm" id="btSair">Sair</button></div>' +
+    '</div></header><main id="view"></main>';
+  $("btTema").onclick = function(){ setTema(document.documentElement.getAttribute("data-tema") === "claro" ? "escuro" : "claro"); };
+  $("btSair").onclick = function(){ sair(); };
+  $("btSenha").onclick = modalSenha;
+}
+
+function render(){
+  if (!API_URL) return telaSemApi();
+  if (!TOKEN || !USER) return telaLogin();
+  var r = rota();
+  var admin = USER.papel === "admin";
+  if ((r === "equipe" || r === "pessoas") && !admin) { location.hash = "#meu-dia"; return; }
+  shell();
+  if (r === "equipe") return viewEquipe();
+  if (r === "historico") return viewHistorico();
+  if (r === "pessoas") return viewPessoas();
+  return viewMeuDia();
+}
+window.addEventListener("hashchange", render);
+
+function sair(silencioso){
+  var t = TOKEN;
+  TOKEN = null; USER = null;
+  try { localStorage.removeItem("eod.token"); localStorage.removeItem("eod.user"); } catch(e){}
+  if (!silencioso && t) fetch(API_URL, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify({ action:"logout", token:t }) }).catch(function(){});
+  render();
+}
+
+/* =============================================================================
+   LOGIN
+   ========================================================================== */
+function telaSemApi(){
+  $("app").innerHTML = '<div class="login"><div class="login-box"><div class="mk">DS</div><h2>Quase lá</h2>' +
+    '<p class="sub">Falta colar a URL do Apps Script na linha <b>API_URL</b> do index.html. O passo a passo está no README.</p></div></div>';
+}
+
+function telaLogin(primeiro){
+  $("app").innerHTML =
+    '<div class="login"><div class="login-box"><div class="mk">DS</div>' +
+    '<h2>' + (primeiro ? "Primeiro acesso" : "EOD Dropscale") + '</h2>' +
+    '<p class="sub">' + (primeiro ? "Crie o primeiro admin com o código que aparece ao rodar configurar() no Apps Script." : "Entre com o seu e-mail e senha.") + '</p>' +
+    '<div class="msgbox bad hide" id="lgMsg"></div>' +
+    (primeiro ?
+      '<div class="field"><label for="pCod">Código de primeiro acesso</label><input class="inp" id="pCod" autocomplete="off"></div>' +
+      '<div class="field"><label for="pNome">Seu nome</label><input class="inp" id="pNome" autocomplete="name"></div>' : "") +
+    '<div class="field"><label for="lgEmail">E-mail</label><input class="inp" id="lgEmail" type="email" autocomplete="username"></div>' +
+    '<div class="field"><label for="lgSenha">' + (primeiro ? "Crie uma senha" : "Senha") + '</label><input class="inp" id="lgSenha" type="password" autocomplete="' + (primeiro ? "new-password" : "current-password") + '"></div>' +
+    '<button class="btn pri" style="width:100%" id="lgBtn">' + (primeiro ? "Criar e entrar" : "Entrar") + '</button>' +
+    '<button class="link hide" id="lgTroca"></button>' +
+    '</div></div>';
+  var msg = function(t){ var m = $("lgMsg"); m.textContent = t; m.classList.toggle("hide", !t); };
+  $("lgBtn").onclick = function(){
+    var b = $("lgBtn"); b.disabled = true; msg("");
+    var dados = { email: $("lgEmail").value, senha: $("lgSenha").value };
+    if (primeiro){ dados.codigo = $("pCod").value; dados.nome = $("pNome").value; }
+    api(primeiro ? "primeiroAcesso" : "login", dados).then(function(j){
+      TOKEN = j.token; USER = j.user;
+      try { localStorage.setItem("eod.token", TOKEN); localStorage.setItem("eod.user", JSON.stringify(USER)); } catch(e){}
+      location.hash = "#meu-dia"; render();
+    }).catch(function(e){ msg(e.message); b.disabled = false; });
+  };
+  $("lgSenha").onkeydown = function(e){ if (e.key === "Enter") $("lgBtn").click(); };
+  // Sem nenhum usuário na planilha, oferece o primeiro acesso.
+  api("ping").then(function(j){
+    var l = $("lgTroca"); if (!l) return;
+    if (!j.temUsuarios && !primeiro){ l.textContent = "Primeiro acesso (criar o admin)"; l.classList.remove("hide"); l.onclick = function(){ telaLogin(true); }; }
+    if (primeiro){ l.textContent = "Voltar ao login"; l.classList.remove("hide"); l.onclick = function(){ telaLogin(false); }; }
+  }).catch(function(e){ msg(e.message); });
+}
+
+function modalSenha(){
+  var m = document.createElement("div"); m.className = "modal";
+  m.innerHTML = '<div class="box"><h2 style="font-size:16px;margin-bottom:12px">Trocar senha</h2><div class="msgbox bad hide" id="msMsg"></div>' +
+    '<div class="field"><label for="msA">Senha atual</label><input class="inp" id="msA" type="password" autocomplete="current-password"></div>' +
+    '<div class="field"><label for="msN">Senha nova (mínimo 6)</label><input class="inp" id="msN" type="password" autocomplete="new-password"></div>' +
+    '<div class="row" style="justify-content:flex-end"><button class="btn ghost" id="msX">Cancelar</button><button class="btn pri" id="msOk">Salvar</button></div></div>';
+  document.body.appendChild(m);
+  var fechar = function(){ m.remove(); };
+  $("msX").onclick = fechar; m.onclick = function(e){ if (e.target === m) fechar(); };
+  $("msOk").onclick = function(){
+    api("trocarSenha", { atual: $("msA").value, nova: $("msN").value })
+      .then(function(){ fechar(); toast("Senha trocada."); })
+      .catch(function(e){ var x = $("msMsg"); x.textContent = e.message; x.classList.remove("hide"); });
+  };
+}
+
+/* =============================================================================
+   MEU DIA
+   ========================================================================== */
+function viewMeuDia(){
+  var v = $("view");
+  v.innerHTML =
+    '<div class="head"><div><h1>Olá, ' + esc(primeiroNome(USER.nome)) + '</h1><p id="mdSub">Seu EOD de ' + esc(fmtData(DIA_DATA, true)) + '</p></div>' +
+    datenav("md", DIA_DATA) + '</div>' +
+    '<div class="grid2 md">' +
+      '<div class="stack">' +
+        '<section class="card" id="cAdd"><h2>Adicionar tarefa</h2><div class="sub">Digite para buscar. Se for algo novo, crie aqui mesmo.</div>' +
+          '<div class="busca"><input class="inp" id="busca" placeholder="Ex.: e-mails, planilha Quasi, dashboard…" autocomplete="off"><div class="drop hide" id="drop"></div></div>' +
+          '<div id="novoForm"></div></section>' +
+        '<section class="card" id="cReg"><div class="row" style="justify-content:space-between"><h2 id="hojeTit">Registrado</h2><span id="visto"></span></div>' +
+          '<div class="sub" id="hojeSub"></div><div class="tot" id="tot"></div><div id="regs"><div class="load">Carregando…</div></div></section>' +
+      '</div>' +
+      '<div class="stack">' +
+        '<section class="card" id="cSug"><div class="row" style="justify-content:space-between"><h2 id="sugTit">Com base em ontem</h2><button class="btn sm hide" id="sugTodas">Marcar todas</button></div>' +
+          '<div class="sub">Marque o que você também fez hoje. Entra direto no seu EOD.</div><div id="sugs"><div class="load">Carregando…</div></div></section>' +
+        '<section class="card" id="cConv"><h2>Conversa sobre este EOD</h2><div class="sub">Perguntas da chefe e suas respostas ficam salvas junto do dia.</div><div id="conv"></div></section>' +
+      '</div>' +
+    '</div>';
+  ligaDatenav("md", function(d){ DIA_DATA = d; viewMeuDia(); });
+  ligaBusca();
+  carregaDia();
+}
+
+function datenav(p, data){
+  return '<div class="datenav"><button class="btn sm" id="' + p + 'Ant" title="Dia anterior">‹</button>' +
+    '<input type="date" class="inp" id="' + p + 'Data" value="' + data + '" style="padding:5px 8px">' +
+    '<button class="btn sm" id="' + p + 'Prox" title="Próximo dia">›</button>' +
+    (data !== hojeISO() ? '<button class="btn sm" id="' + p + 'Hoje">Hoje</button>' : "") + '</div>';
+}
+function ligaDatenav(p, fn){
+  var d = $(p + "Data");
+  $(p + "Ant").onclick = function(){ fn(addDias(d.value, -1)); };
+  $(p + "Prox").onclick = function(){ fn(addDias(d.value, 1)); };
+  d.onchange = function(){ if (d.value) fn(d.value); };
+  if ($(p + "Hoje")) $(p + "Hoje").onclick = function(){ fn(hojeISO()); };
+}
+
+function carregaDia(){
+  var pedido = DIA_DATA;
+  api("dia", { data: pedido }).then(function(j){
+    if (pedido !== DIA_DATA || rota() !== "meu-dia") return;
+    DIA = j; CAT = j.catalogo || [];
+    desenhaSugestoes(); desenhaRegistros(); desenhaConversa(); desenhaVisto();
+  }).catch(function(e){ var r = $("regs"); if (r) r.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+function desenhaVisto(){
+  var el = $("visto"); if (!el) return;
+  el.innerHTML = DIA.visto ? '<span class="tag good">✓ Visto por ' + esc(primeiroNome(DIA.visto.vistoPor)) + ' às ' + esc(fmtHora(DIA.visto.vistoEm)) + '</span>' : "";
+}
+
+function detalheReg(r){
+  var p = [];
+  if (r.tipo === "longa"){
+    if (r.status) p.push(r.status);
+    if (r.minutos) p.push(fmtMin(r.minutos));
+    if (r.quantidade != null) p.push(num(r.quantidade) + " feitos");
+  } else if (r.quantidade != null) p.push(num(r.quantidade));
+  return p.join(" · ");
+}
+
+function desenhaSugestoes(){
+  var el = $("sugs"); if (!el) return;
+  var s = DIA.sugestoes || [];
+  $("sugTit").textContent = !DIA.baseData || DIA.baseData === addDias(DIA_DATA, -1) ? "Com base em ontem" : "Com base em " + fmtData(DIA.baseData);
+  $("sugTodas").classList.toggle("hide", s.length < 2);
+  if (!s.length){
+    el.innerHTML = '<div class="empty">' + (DIA.baseData ? "Tudo do último dia já está no EOD de hoje." : "Ainda não há dias anteriores. O que você registrar hoje vai aparecer aqui amanhã.") + '</div>';
+    return;
+  }
+  el.innerHTML = s.map(function(x, i){
+    var det = detalheReg(x);
+    var extra = x.motivo === "aberta" ? ' <span class="tag brand">em aberto desde ' + esc(fmtData(x.data)) + '</span>' : "";
+    return '<label class="sug" data-i="' + i + '"><input type="checkbox"><div><div class="nm">' + esc(x.tarefa) + extra + '</div>' +
+      '<div class="det">' + dotLoja(x.loja) + ' ' + esc(x.loja || "Sem loja") + (det ? " · " + esc(det) : "") +
+      (x.bloqueado ? ' · <span style="color:var(--warn-ink)">travada: ' + esc(x.bloqueioNota || "sem nota") + '</span>' : "") + '</div></div></label>';
+  }).join("");
+  Array.prototype.forEach.call(el.querySelectorAll(".sug input"), function(cb){
+    cb.onchange = function(){ if (cb.checked) usarSugestao(+cb.closest(".sug").getAttribute("data-i"), cb.closest(".sug")); };
+  });
+  $("sugTodas").onclick = function(){
+    var fila = (DIA.sugestoes || []).slice();
+    $("sugTodas").disabled = true;
+    (function prox(){
+      if (!fila.length){ $("sugTodas").disabled = false; return; }
+      var x = fila.shift();
+      criaRegistro(sugParaRegistro(x), false).then(function(){ DIA.sugestoes = DIA.sugestoes.filter(function(y){ return y !== x; }); desenhaSugestoes(); prox(); })
+        .catch(function(e){ toast(e.message, true); $("sugTodas").disabled = false; });
+    })();
+  };
+}
+
+function sugParaRegistro(x){
+  var r = { tarefaId: x.tarefaId, loja: x.loja };
+  if (x.tipo === "longa"){
+    r.status = x.status === STATUS_FINAL ? "" : x.status;
+    r.bloqueado = x.bloqueado; r.bloqueioNota = x.bloqueioNota;
+  }
+  return r;
+}
+
+function usarSugestao(i, el){
+  var x = DIA.sugestoes[i]; if (!x) return;
+  el.classList.add("busy");
+  criaRegistro(sugParaRegistro(x), true).then(function(){
+    DIA.sugestoes = DIA.sugestoes.filter(function(y){ return y !== x; });
+    desenhaSugestoes();
+  }).catch(function(e){ el.classList.remove("busy"); el.querySelector("input").checked = false; toast(e.message, true); });
+}
+
+function criaRegistro(dados, focar){
+  dados.data = DIA_DATA;
+  return api("salvarRegistro", dados).then(function(j){
+    DIA.registros.push(j.registro);
+    desenhaRegistros(focar ? j.registro.id : null);
+    return j.registro;
+  });
+}
+
+/* ---------- busca e criação de tarefa ---------- */
+function ligaBusca(){
+  var inp = $("busca"), drop = $("drop"), ativo = 0, opcoes = [];
+  function fecha(){ drop.classList.add("hide"); }
+  function abre(){
+    var q = chave(inp.value);
+    var jaHoje = {}; (DIA ? DIA.registros : []).forEach(function(r){ jaHoje[r.tarefaId] = true; });
+    var lista = CAT.filter(function(t){ return !q || chave(t.nome).indexOf(q) >= 0; })
+      .sort(function(a, b){
+        var ai = chave(a.nome).indexOf(q), bi = chave(b.nome).indexOf(q);
+        return ai !== bi ? ai - bi : a.nome.localeCompare(b.nome, "pt-BR");
+      }).slice(0, 8);
+    opcoes = lista.map(function(t){ return { t: t }; });
+    var exato = CAT.some(function(t){ return chave(t.nome) === q; });
+    if (q && !exato) opcoes.push({ novo: inp.value.trim() });
+    if (!opcoes.length){ drop.innerHTML = '<div class="empty">Nenhuma tarefa cadastrada ainda. Digite o nome para criar a primeira.</div>'; drop.classList.remove("hide"); return; }
+    ativo = Math.min(ativo, opcoes.length - 1);
+    drop.innerHTML = opcoes.map(function(o, i){
+      if (o.novo) return '<div class="opt novo' + (i === ativo ? " act" : "") + '" data-i="' + i + '">+ Criar tarefa nova: “' + esc(o.novo) + '”</div>';
+      return '<div class="opt' + (i === ativo ? " act" : "") + '" data-i="' + i + '"><span class="nm">' + esc(o.t.nome) + '</span>' +
+        (jaHoje[o.t.id] ? '<span class="tag">já no EOD</span>' : "") +
+        '<span class="tag">' + (o.t.tipo === "longa" ? "longa" : "quantidade") + '</span></div>';
+    }).join("");
+    drop.classList.remove("hide");
+    Array.prototype.forEach.call(drop.querySelectorAll(".opt"), function(el){
+      el.onmousedown = function(e){ e.preventDefault(); escolhe(+el.getAttribute("data-i")); };
+    });
+  }
+  function escolhe(i){
+    var o = opcoes[i]; if (!o) return;
+    fecha(); inp.value = "";
+    if (o.novo) return formNovaTarefa(o.novo);
+    var loja = o.t.lojaPadrao || (USER.lojas && USER.lojas[0]) || "";
+    criaRegistro({ tarefaId: o.t.id, loja: loja, status: o.t.tipo === "longa" ? "Iniciado" : "" }, true).catch(function(e){ toast(e.message, true); });
+  }
+  inp.oninput = function(){ ativo = 0; abre(); };
+  inp.onfocus = abre;
+  inp.onblur = function(){ setTimeout(fecha, 120); };
+  inp.onkeydown = function(e){
+    if (e.key === "ArrowDown"){ ativo = Math.min(ativo + 1, opcoes.length - 1); abre(); e.preventDefault(); }
+    else if (e.key === "ArrowUp"){ ativo = Math.max(ativo - 1, 0); abre(); e.preventDefault(); }
+    else if (e.key === "Enter"){ escolhe(ativo); e.preventDefault(); }
+    else if (e.key === "Escape"){ fecha(); }
+  };
+}
+
+function selectLojas(id, valor, cls){
+  var ls = LOJAS.slice(); if (valor && ls.indexOf(valor) < 0) ls.push(valor);
+  return '<select class="inp ' + (cls || "") + '" id="' + id + '"><option value="">Sem loja</option>' +
+    ls.map(function(l){ return '<option' + (l === valor ? " selected" : "") + '>' + esc(l) + '</option>'; }).join("") + '</select>';
+}
+
+function formNovaTarefa(nome){
+  var box = $("novoForm"), tipo = "repetitiva";
+  box.innerHTML = '<div class="novoform"><div class="field"><label for="nfNome">Nome da tarefa</label><input class="inp" id="nfNome" value="' + esc(nome) + '"></div>' +
+    '<div class="field"><span class="lbl">Como ela funciona?</span><div class="tipos">' +
+      '<div class="tipo on" data-t="repetitiva"><b>Por quantidade</b><span>Faz várias e conta. Ex.: e-mails, tickets, reembolsos.</span></div>' +
+      '<div class="tipo" data-t="longa"><b>Longa, com etapas</b><span>Leva tempo e tem status. Ex.: planilha, dashboard, SOP.</span></div></div></div>' +
+    '<div class="field"><label for="nfLoja">Loja</label>' + selectLojas("nfLoja", (USER.lojas && USER.lojas[0]) || "") + '</div>' +
+    '<div class="row" style="justify-content:flex-end"><button class="btn ghost" id="nfX">Cancelar</button><button class="btn pri" id="nfOk">Criar e adicionar</button></div></div>';
+  Array.prototype.forEach.call(box.querySelectorAll(".tipo"), function(el){
+    el.onclick = function(){ tipo = el.getAttribute("data-t"); box.querySelectorAll(".tipo").forEach(function(x){ x.classList.toggle("on", x === el); }); };
+  });
+  $("nfX").onclick = function(){ box.innerHTML = ""; };
+  $("nfOk").onclick = function(){
+    var b = $("nfOk"); b.disabled = true;
+    var loja = $("nfLoja").value;
+    api("criarTarefa", { nome: $("nfNome").value, tipo: tipo, lojaPadrao: loja }).then(function(j){
+      if (!CAT.some(function(t){ return t.id === j.tarefa.id; })) CAT.push(j.tarefa);
+      box.innerHTML = "";
+      if (j.existia) toast("Essa tarefa já existia — usei a que estava cadastrada.");
+      return criaRegistro({ tarefaId: j.tarefa.id, loja: loja, status: j.tarefa.tipo === "longa" ? "Iniciado" : "" }, true);
+    }).catch(function(e){ b.disabled = false; toast(e.message, true); });
+  };
+  $("nfNome").focus();
+}
+
+/* ---------- registros do dia (salvam sozinhos) ---------- */
+function desenhaRegistros(focarId){
+  var el = $("regs"); if (!el) return;
+  var rs = DIA.registros;
+  $("hojeTit").textContent = (DIA_DATA === hojeISO() ? "Registrado hoje" : "Registrado em " + fmtData(DIA_DATA)) + (rs.length ? " (" + rs.length + ")" : "");
+  $("hojeSub").textContent = rs.length ? "Tudo aqui salva sozinho enquanto você preenche." : "";
+  desenhaTotais();
+  if (!rs.length){ el.innerHTML = '<div class="empty">Nada registrado ainda. Marque o que se repete de ontem ou adicione uma tarefa.</div>'; return; }
+  el.innerHTML = rs.map(cardRegistro).join("");
+  rs.forEach(function(r){ ligaCard(r); });
+  if (focarId){
+    var c = el.querySelector('[data-id="' + focarId + '"]');
+    if (c){ c.scrollIntoView({ block: "nearest", behavior: "smooth" }); var f = c.querySelector(".foco"); if (f) f.focus(); }
+  }
+}
+
+function desenhaTotais(){
+  var el = $("tot"); if (!el) return;
+  var soma = {}, trav = 0;
+  DIA.registros.forEach(function(r){
+    if (r.tipo !== "longa" && r.quantidade) soma[r.tarefa] = (soma[r.tarefa] || 0) + r.quantidade;
+    if (r.bloqueado) trav++;
+  });
+  el.innerHTML = Object.keys(soma).map(function(k){ return '<span class="tag brand">' + esc(k) + ': ' + num(soma[k]) + '</span>'; }).join("") +
+    (trav ? '<span class="tag warn">' + trav + ' travada' + (trav > 1 ? "s" : "") + '</span>' : "");
+}
+
+function cardRegistro(r){
+  var id = r.id, h = r.minutos ? Math.floor(r.minutos / 60) : "", m = r.minutos ? r.minutos % 60 : "";
+  var corpo;
+  if (r.tipo === "longa"){
+    corpo =
+      '<div class="full"><span class="lbl">Status</span><div class="seg" data-f="status">' +
+        STATUS.map(function(s){ return '<button type="button" class="' + (r.status === s ? "on" : "") + (s === STATUS_FINAL ? " fim" : "") + '" data-v="' + esc(s) + '">' + esc(s) + '</button>'; }).join("") + '</div></div>' +
+      '<div><span class="lbl">Tempo gasto hoje</span><div class="tempo"><input class="inp foco" type="number" min="0" inputmode="numeric" data-f="h" value="' + h + '" placeholder="0"> h ' +
+        '<input class="inp" type="number" min="0" max="59" inputmode="numeric" data-f="m" value="' + m + '" placeholder="0"> min</div></div>' +
+      '<div><span class="lbl">Quantidade feita (opcional)</span><input class="inp" type="number" min="0" inputmode="numeric" data-f="quantidade" value="' + (r.quantidade == null ? "" : r.quantidade) + '"></div>';
+  } else {
+    corpo = '<div><span class="lbl">Quantidade</span><input class="inp foco" type="number" min="0" inputmode="numeric" data-f="quantidade" value="' + (r.quantidade == null ? "" : r.quantidade) + '" placeholder="Quantos?"></div>';
+  }
+  return '<div class="reg' + (r.bloqueado ? " trav" : "") + '" data-id="' + esc(id) + '">' +
+    '<div class="hd"><span class="nm">' + esc(r.tarefa) + '</span>' + selectLojas("lj_" + id, r.loja, "sm") +
+      '<button class="btn ghost sm danger" data-x>Remover</button></div>' +
+    '<div class="bd">' + corpo +
+      '<div class="full"><span class="lbl">Observação (opcional)</span><textarea class="inp" rows="1" data-f="obs" placeholder="Algum detalhe que a chefe precise saber?">' + esc(r.obs) + '</textarea></div>' +
+      '<div class="full"><label class="chk"><input type="checkbox" data-f="bloqueado"' + (r.bloqueado ? " checked" : "") + '> Está travada: falta algo para terminar</label>' +
+        '<input class="inp' + (r.bloqueado ? "" : " hide") + '" style="margin-top:6px" data-f="bloqueioNota" value="' + esc(r.bloqueioNota) + '" placeholder="O que falta? Ex.: export da Lumvelle"></div>' +
+    '</div>' +
+    '<div class="ft"><span>' + (r.tipo === "longa" ? "Tarefa longa" : "Por quantidade") + '</span><span class="salvo" data-s>Salvo</span></div></div>';
+}
+
+var TIMERS = {};
+function ligaCard(r){
+  var c = document.querySelector('.reg[data-id="' + r.id + '"]'); if (!c) return;
+  var q = function(f){ return c.querySelector('[data-f="' + f + '"]'); };
+  var agenda = function(){ c.querySelector("[data-s]").textContent = "Salvando…"; c.querySelector("[data-s]").className = "salvo"; clearTimeout(TIMERS[r.id]); TIMERS[r.id] = setTimeout(function(){ salvaCard(r.id); }, 700); };
+  Array.prototype.forEach.call(c.querySelectorAll("input[data-f],textarea[data-f]"), function(el){
+    el.addEventListener(el.type === "checkbox" ? "change" : "input", agenda);
+  });
+  $("lj_" + r.id).onchange = agenda;
+  var seg = c.querySelector('[data-f="status"]');
+  if (seg) Array.prototype.forEach.call(seg.querySelectorAll("button"), function(b){
+    b.onclick = function(){ seg.querySelectorAll("button").forEach(function(x){ x.classList.toggle("on", x === b); }); agenda(); };
+  });
+  var bl = q("bloqueado");
+  bl.addEventListener("change", function(){
+    q("bloqueioNota").classList.toggle("hide", !bl.checked);
+    c.classList.toggle("trav", bl.checked);
+    if (bl.checked) q("bloqueioNota").focus();
+  });
+  var ta = q("obs"); var cresce = function(){ ta.style.height = "auto"; ta.style.height = Math.max(38, ta.scrollHeight + 2) + "px"; };
+  ta.addEventListener("input", cresce); cresce();
+  var x = c.querySelector("[data-x]");
+  x.onclick = function(){
+    if (!x.classList.contains("conf")){ x.classList.add("conf"); x.textContent = "Confirmar"; setTimeout(function(){ if (x.isConnected){ x.classList.remove("conf"); x.textContent = "Remover"; } }, 3000); return; }
+    x.disabled = true; clearTimeout(TIMERS[r.id]);
+    api("excluirRegistro", { id: r.id }).then(function(){
+      DIA.registros = DIA.registros.filter(function(y){ return y.id !== r.id; });
+      desenhaRegistros(); carregaSugestoesDeNovo();
+    }).catch(function(e){ x.disabled = false; toast(e.message, true); });
+  };
+}
+
+function carregaSugestoesDeNovo(){
+  api("dia", { data: DIA_DATA }).then(function(j){ if (rota() === "meu-dia" && j.data === DIA_DATA){ DIA.sugestoes = j.sugestoes; desenhaSugestoes(); } }).catch(function(){});
+}
+
+function salvaCard(id){
+  var c = document.querySelector('.reg[data-id="' + id + '"]'); if (!c) return;
+  var r = DIA.registros.filter(function(x){ return x.id === id; })[0]; if (!r) return;
+  var q = function(f){ return c.querySelector('[data-f="' + f + '"]'); };
+  var dados = { id: id, data: DIA_DATA, tarefaId: r.tarefaId, loja: $("lj_" + id).value,
+    obs: q("obs").value, bloqueado: q("bloqueado").checked, bloqueioNota: q("bloqueioNota").value,
+    quantidade: q("quantidade") ? q("quantidade").value : "" };
+  if (r.tipo === "longa"){
+    var on = c.querySelector('[data-f="status"] button.on');
+    dados.status = on ? on.getAttribute("data-v") : "";
+    var h = +q("h").value || 0, m = +q("m").value || 0;
+    dados.minutos = (q("h").value === "" && q("m").value === "") ? "" : h * 60 + m;
+  }
+  var s = c.querySelector("[data-s]");
+  var seq = SEQ[id] = (SEQ[id] || 0) + 1;   // só a resposta do último envio mexe no aviso
+  api("salvarRegistro", dados).then(function(j){
+    var i = DIA.registros.findIndex(function(x){ return x.id === id; });
+    if (i >= 0) DIA.registros[i] = j.registro;
+    if (seq === SEQ[id]){ s.textContent = "Salvo " + fmtHora(j.registro.atualizadoEm); s.className = "salvo"; }
+    desenhaTotais();
+  }).catch(function(e){ if (seq === SEQ[id]){ s.textContent = "Não salvou: " + e.message; s.className = "salvo err"; } });
+}
+var SEQ = {};
+
+/* ---------- conversa ---------- */
+function htmlMsgs(msgs){
+  if (!msgs.length) return "";
+  return '<div class="msgs">' + msgs.map(function(m){
+    var eu = m.autor === USER.email;
+    return '<div class="msg' + (eu ? " eu" : "") + '"><div class="au">' + esc(eu ? "Você" : m.autorNome) + ' · ' + esc(fmtHora(m.criadoEm)) + '</div><div class="tx">' + esc(m.texto) + '</div></div>';
+  }).join("") + '</div>';
+}
+function htmlReply(id, ph){
+  return '<div class="reply"><textarea class="inp" id="' + id + '" rows="1" placeholder="' + esc(ph) + '"></textarea><button class="btn pri" id="' + id + 'Bt">Enviar</button></div>';
+}
+function ligaReply(id, enviar){
+  var t = $(id), b = $(id + "Bt");
+  b.onclick = function(){
+    if (!t.value.trim()) return;
+    b.disabled = true;
+    enviar(t.value).then(function(){ }).catch(function(e){ toast(e.message, true); b.disabled = false; });
+  };
+  t.onkeydown = function(e){ if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) b.click(); };
+}
+function desenhaConversa(){
+  var el = $("conv"); if (!el) return;
+  var ms = DIA.mensagens || [];
+  el.innerHTML = (ms.length ? htmlMsgs(ms) : '<div class="empty" style="padding-top:0">Nenhuma mensagem neste dia.</div>') +
+    htmlReply("mdMsg", ms.length ? "Responder…" : "Escrever para a chefe…");
+  ligaReply("mdMsg", function(txt){
+    return api("mensagem", { data: DIA_DATA, texto: txt }).then(function(j){ DIA.mensagens = j.mensagens; desenhaConversa(); });
+  });
+}
+
+/* =============================================================================
+   EQUIPE (admin)
+   ========================================================================== */
+function viewEquipe(){
+  var v = $("view");
+  v.innerHTML = '<div class="head"><div><h1>Equipe</h1><p>EODs de ' + esc(fmtData(PAINEL_DATA, true)) + '</p></div>' + datenav("eq", PAINEL_DATA) + '</div>' +
+    '<div id="eqBody"><div class="load">Carregando…</div></div>';
+  ligaDatenav("eq", function(d){ PAINEL_DATA = d; viewEquipe(); });
+  var pedido = PAINEL_DATA;
+  api("painel", { data: pedido }).then(function(j){ if (pedido === PAINEL_DATA && rota() === "equipe"){ PAINEL = j; desenhaEquipe(); } })
+    .catch(function(e){ $("eqBody").innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+function desenhaEquipe(){
+  var P = PAINEL;
+  var porEmail = {}; P.registros.forEach(function(r){ (porEmail[r.email] = porEmail[r.email] || []).push(r); });
+  var vistoDe = {}; P.vistos.forEach(function(x){ vistoDe[x.email] = x; });
+  var msgsDe = {}; P.mensagens.forEach(function(m){ (msgsDe[m.email] = msgsDe[m.email] || []).push(m); });
+  var pessoas = P.users.filter(function(u){ return u.eod || porEmail[u.email]; });
+  var fizeram = pessoas.filter(function(u){ return porEmail[u.email]; }).length;
+  var travadas = P.registros.filter(function(r){ return r.bloqueado; }).length;
+  var vistos = pessoas.filter(function(u){ return vistoDe[u.email]; }).length;
+
+  var soma = {};
+  P.registros.forEach(function(r){
+    if (r.tipo === "longa" || !r.quantidade) return;
+    var s = soma[r.tarefa] = soma[r.tarefa] || { total: 0, loja: {} };
+    s.total += r.quantidade; s.loja[r.loja || "Sem loja"] = (s.loja[r.loja || "Sem loja"] || 0) + r.quantidade;
+  });
+
+  var filtradas = pessoas.filter(function(u){
+    if (PAINEL_FILTRO === "trav") return (porEmail[u.email] || []).some(function(r){ return r.bloqueado; });
+    if (PAINEL_FILTRO === "semvisto") return porEmail[u.email] && !vistoDe[u.email];
+    if (PAINEL_FILTRO === "faltam") return !porEmail[u.email];
+    return true;
+  });
+
+  var html =
+    '<div class="tiles">' +
+      '<div class="tile"><div class="k">Registraram</div><div class="v">' + fizeram + ' <small>de ' + pessoas.length + '</small></div></div>' +
+      '<div class="tile"><div class="k">Tarefas travadas</div><div class="v" style="' + (travadas ? "color:var(--warn-ink)" : "") + '">' + travadas + '</div></div>' +
+      '<div class="tile"><div class="k">Já vistos</div><div class="v">' + vistos + ' <small>de ' + fizeram + '</small></div></div>' +
+    '</div>' +
+    '<div class="row" style="margin-bottom:14px"><div class="seg" id="eqF">' +
+      [["todos","Todos"],["trav","Com travadas"],["semvisto","Sem visto"],["faltam","Não registraram"]].map(function(f){
+        return '<button class="' + (PAINEL_FILTRO === f[0] ? "on" : "") + '" data-v="' + f[0] + '">' + f[1] + '</button>'; }).join("") +
+    '</div></div>' +
+    '<div class="pessoas">' + (filtradas.length ? filtradas.map(function(u){ return cardPessoa(u, porEmail[u.email] || [], vistoDe[u.email], msgsDe[u.email] || []); }).join("")
+      : '<div class="empty">Ninguém nesse filtro.</div>') + '</div>';
+
+  var tarefas = Object.keys(soma);
+  if (tarefas.length){
+    html += '<section class="card resumo" style="margin-top:16px"><h2>Somatório por loja</h2><div class="sub">Tarefas por quantidade, somando toda a equipe.</div><div class="tblwrap"><table><thead><tr><th>Tarefa</th><th>Por loja</th><th class="n">Total</th></tr></thead><tbody>' +
+      tarefas.map(function(t){
+        var s = soma[t];
+        return '<tr><td>' + esc(t) + '</td><td><div class="row" style="gap:6px">' + Object.keys(s.loja).map(function(l){ return '<span class="tag">' + dotLoja(l) + esc(l) + ' ' + num(s.loja[l]) + '</span>'; }).join("") +
+          '</div></td><td class="n"><b>' + num(s.total) + '</b></td></tr>';
+      }).join("") + '</tbody></table></div></section>';
+  }
+  $("eqBody").innerHTML = html;
+
+  $("eqF").querySelectorAll("button").forEach(function(b){ b.onclick = function(){ PAINEL_FILTRO = b.getAttribute("data-v"); desenhaEquipe(); }; });
+  filtradas.forEach(function(u){
+    var k = idSeguro(u.email);
+    var bt = $("vis_" + k);
+    if (bt) bt.onclick = function(){
+      var tem = !!vistoDe[u.email]; bt.disabled = true;
+      api("visto", { data: PAINEL_DATA, email: u.email, desfazer: tem }).then(function(j){
+        PAINEL.vistos = PAINEL.vistos.filter(function(x){ return x.email !== u.email; });
+        if (j.visto) PAINEL.vistos.push({ email: u.email, vistoPor: j.visto.vistoPor, vistoEm: j.visto.vistoEm });
+        desenhaEquipe();
+      }).catch(function(e){ bt.disabled = false; toast(e.message, true); });
+    };
+    if ($("rp_" + k)) ligaReply("rp_" + k, function(txt){
+      return api("mensagem", { data: PAINEL_DATA, email: u.email, texto: txt }).then(function(j){
+        PAINEL.mensagens = PAINEL.mensagens.filter(function(m){ return m.email !== u.email; }).concat(j.mensagens);
+        desenhaEquipe();
+      });
+    });
+  });
+}
+
+function idSeguro(s){ return String(s).replace(/[^a-z0-9]/gi, "_"); }
+
+function linhaItem(r){
+  var det = detalheReg(r);
+  return '<div class="it">' + dotLoja(r.loja) + '<div class="c"><div class="l1"><span class="nm">' + esc(r.tarefa) + '</span><span class="v">' + esc(det) + '</span></div>' +
+    '<div class="l2">' + esc(r.loja || "Sem loja") + (r.obs ? " · " + esc(r.obs) : "") + '</div>' +
+    (r.bloqueado ? '<div class="trv">Travada: ' + esc(r.bloqueioNota || "sem nota") + '</div>' : "") + '</div></div>';
+}
+
+function cardPessoa(u, regs, visto, msgs){
+  var k = idSeguro(u.email);
+  var trav = regs.some(function(r){ return r.bloqueado; });
+  return '<div class="pc' + (trav ? " alerta" : "") + '"><div class="ph"><div style="flex:1"><div class="nm">' + esc(u.nome) + '</div>' +
+      '<div class="lj">' + (u.lojas && u.lojas.length ? esc(u.lojas.join(", ")) : "Sem loja fixa") + '</div></div>' +
+      (regs.length ? '<button class="btn sm ' + (visto ? "ok" : "") + '" id="vis_' + k + '" title="' + (visto ? "Clique para desfazer" : "Marcar como visto") + '">' + (visto ? "✓ Visto " + esc(fmtHora(visto.vistoEm)) : "Marcar visto") + '</button>'
+        : '<span class="tag">Pendente</span>') + '</div>' +
+    '<div>' + (regs.length ? regs.map(linhaItem).join("") : '<div class="empty" style="padding:4px 0 10px">Ainda não registrou nada nesse dia.</div>') + '</div>' +
+    '<div class="conv">' + htmlMsgs(msgs) + htmlReply("rp_" + k, "Perguntar algo para " + primeiroNome(u.nome) + "…") + '</div></div>';
+}
+
+/* =============================================================================
+   HISTÓRICO
+   ========================================================================== */
+function viewHistorico(){
+  var admin = USER.papel === "admin", f = HIST_F;
+  $("view").innerHTML = '<div class="head"><div><h1>Histórico</h1><p>' + (admin ? "Todos os EODs salvos." : "Os seus EODs salvos.") + '</p></div>' +
+    '<div class="row"><button class="btn sm" id="h7">Últimos 7 dias</button><button class="btn sm" id="hMes">Este mês</button><button class="btn sm" id="hCsv">Baixar CSV</button></div></div>' +
+    '<section class="card"><div class="filtros">' +
+      '<div><label class="lbl" for="hDe">De</label><input type="date" class="inp" id="hDe" value="' + f.de + '"></div>' +
+      '<div><label class="lbl" for="hAte">Até</label><input type="date" class="inp" id="hAte" value="' + f.ate + '"></div>' +
+      (admin ? '<div><label class="lbl" for="hPes">Pessoa</label><select class="inp" id="hPes"><option value="">Todas</option></select></div>' : "") +
+      '<div><label class="lbl" for="hLoja">Loja</label>' + selectLojas("hLoja", f.loja).replace('<option value="">Sem loja</option>', '<option value="">Todas</option>') + '</div>' +
+      '<div><label class="lbl" for="hQ">Tarefa</label><input class="inp" id="hQ" value="' + esc(f.q) + '" placeholder="Buscar…"></div>' +
+      '<div><label class="chk" style="height:38px"><input type="checkbox" id="hTrav"' + (f.trav ? " checked" : "") + '> Só travadas</label></div>' +
+    '</div></section><div id="hRes"><div class="load">Carregando…</div></div>';
+  var busca = function(){ HIST_F.de = $("hDe").value || HIST_F.de; HIST_F.ate = $("hAte").value || HIST_F.ate; carregaHist(); };
+  $("hDe").onchange = busca; $("hAte").onchange = busca;
+  if (admin) $("hPes").onchange = function(){ HIST_F.email = this.value; carregaHist(); };
+  $("hLoja").onchange = function(){ HIST_F.loja = this.value; desenhaHist(); };
+  $("hQ").oninput = function(){ HIST_F.q = this.value; desenhaHist(); };
+  $("hTrav").onchange = function(){ HIST_F.trav = this.checked; desenhaHist(); };
+  $("h7").onclick = function(){ HIST_F.de = addDias(hojeISO(), -6); HIST_F.ate = hojeISO(); viewHistorico(); };
+  $("hMes").onclick = function(){ HIST_F.de = hojeISO().slice(0, 8) + "01"; HIST_F.ate = hojeISO(); viewHistorico(); };
+  $("hCsv").onclick = baixaCsv;
+  carregaHist();
+}
+
+function carregaHist(){
+  var f = HIST_F, pedido = JSON.stringify([f.de, f.ate, f.email]);
+  $("hRes").innerHTML = '<div class="load">Carregando…</div>';
+  api("historico", { de: f.de, ate: f.ate, email: f.email }).then(function(j){
+    if (pedido !== JSON.stringify([HIST_F.de, HIST_F.ate, HIST_F.email]) || rota() !== "historico") return;
+    HIST = j;
+    var sel = $("hPes");
+    if (sel && sel.options.length <= 1) j.users.forEach(function(u){ var o = document.createElement("option"); o.value = u.email; o.textContent = u.nome; if (u.email === HIST_F.email) o.selected = true; sel.appendChild(o); });
+    desenhaHist();
+  }).catch(function(e){ $("hRes").innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+function histFiltrado(){
+  var f = HIST_F, q = chave(f.q);
+  return HIST.registros.filter(function(r){
+    return (!f.loja || r.loja === f.loja) && (!q || chave(r.tarefa).indexOf(q) >= 0) && (!f.trav || r.bloqueado);
+  });
+}
+
+function desenhaHist(){
+  if (!HIST) return;
+  var regs = histFiltrado();
+  var nomeDe = {}; HIST.users.forEach(function(u){ nomeDe[u.email] = u.nome; });
+  var vistoDe = {}; HIST.vistos.forEach(function(v){ vistoDe[v.data + "|" + v.email] = v; });
+  var msgsDe = {}; HIST.mensagens.forEach(function(m){ var k = m.data + "|" + m.email; msgsDe[k] = (msgsDe[k] || 0) + 1; });
+  if (!regs.length){ $("hRes").innerHTML = '<div class="empty" style="margin-top:14px">Nenhum registro nesse período e filtro.</div>'; return; }
+
+  var soma = {}, min = 0;
+  regs.forEach(function(r){ if (r.tipo !== "longa" && r.quantidade) soma[r.tarefa] = (soma[r.tarefa] || 0) + r.quantidade; if (r.minutos) min += r.minutos; });
+  var dias = {};
+  regs.forEach(function(r){ ((dias[r.data] = dias[r.data] || {})[r.email] = dias[r.data][r.email] || []).push(r); });
+
+  var html = '<div class="tot" style="margin-top:14px">' + '<span class="tag">' + regs.length + ' registros</span>' +
+    Object.keys(soma).map(function(k){ return '<span class="tag brand">' + esc(k) + ': ' + num(soma[k]) + '</span>'; }).join("") +
+    (min ? '<span class="tag">' + esc(fmtMin(min)) + ' em tarefas longas</span>' : "") + '</div>';
+  Object.keys(dias).sort().reverse().forEach(function(d){
+    var titulo = fmtData(d, true);
+    html += '<div class="dia"><h3>' + esc(titulo.charAt(0).toUpperCase() + titulo.slice(1)) + '</h3>';
+    Object.keys(dias[d]).sort(function(a, b){ return (nomeDe[a] || a).localeCompare(nomeDe[b] || b, "pt-BR"); }).forEach(function(e){
+      var v = vistoDe[d + "|" + e], nm = msgsDe[d + "|" + e];
+      html += '<div class="hp"><div class="hh"><span class="nm">' + esc(nomeDe[e] || e) + '</span>' +
+        (nm ? '<span class="tag">' + nm + ' mensage' + (nm > 1 ? "ns" : "m") + '</span>' : "") +
+        (v ? '<span class="tag good">✓ Visto por ' + esc(primeiroNome(v.vistoPor)) + '</span>' : '<span class="tag">Sem visto</span>') + '</div>' +
+        dias[d][e].map(linhaItem).join("") + '</div>';
+    });
+    html += '</div>';
+  });
+  $("hRes").innerHTML = html;
+}
+
+function baixaCsv(){
+  if (!HIST) return;
+  var nomeDe = {}; HIST.users.forEach(function(u){ nomeDe[u.email] = u.nome; });
+  var vistoDe = {}; HIST.vistos.forEach(function(v){ vistoDe[v.data + "|" + v.email] = v.vistoPor; });
+  var cols = ["Data","Pessoa","E-mail","Tarefa","Tipo","Loja","Quantidade","Minutos","Status","Travada","O que falta","Observação","Visto por"];
+  var cel = function(v){ v = v == null ? "" : String(v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var linhas = histFiltrado().slice().sort(function(a, b){ return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; }).map(function(r){
+    return [r.data, nomeDe[r.email] || "", r.email, r.tarefa, r.tipo === "longa" ? "Longa" : "Quantidade", r.loja, r.quantidade, r.minutos, r.status,
+            r.bloqueado ? "Sim" : "Não", r.bloqueioNota, r.obs, vistoDe[r.data + "|" + r.email] || ""].map(cel).join(";");
+  });
+  var blob = new Blob(["﻿" + [cols.join(";")].concat(linhas).join("\r\n")], { type: "text/csv;charset=utf-8" });
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "eod_" + HIST_F.de + "_a_" + HIST_F.ate + ".csv";
+  document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+/* =============================================================================
+   PESSOAS E TAREFAS (admin)
+   ========================================================================== */
+function viewPessoas(){
+  $("view").innerHTML = '<div class="head"><div><h1>Pessoas e tarefas</h1><p>Quem entra no EOD e a lista de tarefas que aparece nas sugestões.</p></div></div>' +
+    '<div class="grid2"><section class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Pessoas</h2><button class="btn sm pri" id="pNovo">+ Adicionar pessoa</button></div><div id="pLista"><div class="load">Carregando…</div></div></section>' +
+    '<section class="card" id="pForm"></section></div>' +
+    '<section class="card" style="margin-top:16px"><h2>Tarefas cadastradas</h2><div class="sub">Renomeie, troque o tipo ou desative duplicadas. Tarefa desativada some das sugestões, mas continua no histórico.</div><div id="tLista"><div class="load">Carregando…</div></div></section>';
+  $("pNovo").onclick = function(){ EDIT_USER = null; formPessoa(); };
+  api("equipe").then(function(j){ EQUIPE = j.users; desenhaPessoas(); formPessoa(); }).catch(function(e){ $("pLista").innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  api("dia", { data: hojeISO() }).then(function(j){ CAT = j.catalogo; desenhaCatalogo(); }).catch(function(){});
+}
+
+function desenhaPessoas(){
+  $("pLista").innerHTML = '<div class="tblwrap"><table class="tbl"><thead><tr><th>Nome</th><th>Papel</th><th>Lojas</th><th>Último acesso</th><th></th></tr></thead><tbody>' +
+    EQUIPE.map(function(u, i){
+      return '<tr style="' + (u.ativo ? "" : "opacity:.5") + '"><td><b>' + esc(u.nome) + '</b><div class="muted" style="font-size:12px">' + esc(u.email) + '</div></td>' +
+        '<td>' + (u.papel === "admin" ? '<span class="tag brand">admin</span>' : '<span class="tag">agente</span>') + (u.ativo ? "" : ' <span class="tag">inativo</span>') + (u.eod ? "" : ' <span class="tag">sem EOD</span>') + '</td>' +
+        '<td>' + esc((u.lojas || []).join(", ")) + '</td><td class="muted">' + esc(u.ultimoAcesso ? fmtData(u.ultimoAcesso.slice(0, 10)) + " " + fmtHora(u.ultimoAcesso) : "nunca") + '</td>' +
+        '<td><button class="btn sm" data-i="' + i + '">Editar</button></td></tr>';
+    }).join("") + '</tbody></table></div>';
+  $("pLista").querySelectorAll("button[data-i]").forEach(function(b){ b.onclick = function(){ EDIT_USER = EQUIPE[+b.getAttribute("data-i")]; formPessoa(); }; });
+}
+
+function formPessoa(){
+  var u = EDIT_USER || { nome: "", email: "", papel: "agente", lojas: [], eod: true, ativo: true };
+  var novo = !EDIT_USER;
+  $("pForm").innerHTML = '<h2>' + (novo ? "Adicionar pessoa" : "Editar " + esc(u.nome)) + '</h2><div class="sub">' + (novo ? "A pessoa entra com este e-mail e a senha que você definir. Ela pode trocar depois." : "Deixe a senha em branco para manter a atual.") + '</div>' +
+    '<div class="msgbox bad hide" id="pfMsg"></div>' +
+    '<div class="field"><label for="pfNome">Nome</label><input class="inp" id="pfNome" value="' + esc(u.nome) + '"></div>' +
+    '<div class="field"><label for="pfEmail">E-mail</label><input class="inp" id="pfEmail" type="email" value="' + esc(u.email) + '"' + (novo ? "" : " disabled") + '></div>' +
+    '<div class="field"><label for="pfSenha">' + (novo ? "Senha inicial" : "Nova senha (opcional)") + '</label><input class="inp" id="pfSenha" type="text" autocomplete="off" placeholder="mínimo 6 caracteres"></div>' +
+    '<div class="field"><label for="pfPapel">Papel</label><select class="inp" id="pfPapel"><option value="agente"' + (u.papel !== "admin" ? " selected" : "") + '>Agente (vê só o próprio EOD)</option><option value="admin"' + (u.papel === "admin" ? " selected" : "") + '>Admin (vê a equipe, dá visto e pergunta)</option></select></div>' +
+    '<div class="field"><span class="lbl">Lojas da pessoa (viram a loja padrão nas tarefas novas)</span><div class="ljs" id="pfLojas">' +
+      LOJAS.map(function(l){ return '<label><input type="checkbox" value="' + esc(l) + '"' + ((u.lojas || []).indexOf(l) >= 0 ? " checked" : "") + '>' + dotLoja(l) + esc(l) + '</label>'; }).join("") + '</div></div>' +
+    '<div class="field"><label class="chk"><input type="checkbox" id="pfEod"' + (u.eod ? " checked" : "") + '> Faz EOD diário (aparece em "Não registraram")</label></div>' +
+    '<div class="field"><label class="chk"><input type="checkbox" id="pfAtivo"' + (u.ativo ? " checked" : "") + '> Ativo (pode entrar)</label></div>' +
+    '<div class="row" style="justify-content:flex-end">' + (novo ? "" : '<button class="btn ghost" id="pfX">Cancelar</button>') + '<button class="btn pri" id="pfOk">' + (novo ? "Adicionar" : "Salvar") + '</button></div>';
+  if ($("pfX")) $("pfX").onclick = function(){ EDIT_USER = null; formPessoa(); };
+  $("pfOk").onclick = function(){
+    var b = $("pfOk"); b.disabled = true;
+    var lojas = Array.prototype.map.call($("pfLojas").querySelectorAll("input:checked"), function(x){ return x.value; });
+    api("salvarUsuario", { original: novo ? "" : u.email, nome: $("pfNome").value, email: novo ? $("pfEmail").value : u.email, senha: $("pfSenha").value,
+      papel: $("pfPapel").value, lojas: lojas, eod: $("pfEod").checked, ativo: $("pfAtivo").checked })
+      .then(function(j){
+        EQUIPE = j.users; toast(novo ? "Pessoa adicionada." : "Salvo.");
+        var eu = EQUIPE.filter(function(x){ return x.email === USER.email; })[0];
+        if (eu){ USER = eu; try { localStorage.setItem("eod.user", JSON.stringify(USER)); } catch(e){} }
+        EDIT_USER = null; desenhaPessoas(); formPessoa();
+      })
+      .catch(function(e){ b.disabled = false; var m = $("pfMsg"); m.textContent = e.message; m.classList.remove("hide"); });
+  };
+}
+
+function desenhaCatalogo(){
+  var el = $("tLista"); if (!el) return;
+  if (!CAT.length){ el.innerHTML = '<div class="empty">Nenhuma tarefa ainda. Elas são criadas quando alguém adiciona uma tarefa nova no "Meu dia".</div>'; return; }
+  var lista = CAT.slice().sort(function(a, b){ return a.nome.localeCompare(b.nome, "pt-BR"); });
+  el.innerHTML = '<div class="tblwrap"><table class="tbl"><thead><tr><th>Nome</th><th>Tipo</th><th>Loja padrão</th><th></th></tr></thead><tbody>' +
+    lista.map(function(t){
+      var k = idSeguro(t.id);
+      return '<tr><td><input class="inp" id="tn_' + k + '" value="' + esc(t.nome) + '"></td>' +
+        '<td><select class="inp" id="tt_' + k + '"><option value="repetitiva"' + (t.tipo !== "longa" ? " selected" : "") + '>Por quantidade</option><option value="longa"' + (t.tipo === "longa" ? " selected" : "") + '>Longa</option></select></td>' +
+        '<td>' + selectLojas("tl_" + k, t.lojaPadrao) + '</td>' +
+        '<td class="row" style="flex-wrap:nowrap"><button class="btn sm" data-s="' + esc(t.id) + '">Salvar</button><button class="btn sm ghost danger" data-d="' + esc(t.id) + '">Desativar</button></td></tr>';
+    }).join("") + '</tbody></table></div>';
+  var salva = function(id, ativo){
+    var k = idSeguro(id);
+    api("editarTarefa", { id: id, nome: $("tn_" + k).value, tipo: $("tt_" + k).value, lojaPadrao: $("tl_" + k).value, ativo: ativo })
+      .then(function(j){ CAT = j.catalogo; desenhaCatalogo(); toast(ativo ? "Tarefa salva." : "Tarefa desativada."); })
+      .catch(function(e){ toast(e.message, true); });
+  };
+  el.querySelectorAll("[data-s]").forEach(function(b){ b.onclick = function(){ salva(b.getAttribute("data-s"), true); }; });
+  el.querySelectorAll("[data-d]").forEach(function(b){ b.onclick = function(){
+    if (!b.classList.contains("conf")){ b.classList.add("conf"); b.textContent = "Confirmar"; return; }
+    salva(b.getAttribute("data-d"), false);
+  }; });
+}
+
+render();
+</script>
+</body>
+</html>
